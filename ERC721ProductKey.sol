@@ -1,4 +1,5 @@
 
+
 pragma solidity ^0.5.4;
 
 /**
@@ -62,7 +63,58 @@ contract IERC721Receiver {
     function onERC721Received(address operator, address from, uint256 tokenId, bytes memory data)
     public returns (bytes4);
 }
-
+library Strings {
+    function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
+        if (_i == 0) {
+            return "0";
+        }
+        uint j = _i;
+        uint len;
+        while (j != 0) {
+            len++;
+            j /= 10;
+        }
+        bytes memory bstr = new bytes(len);
+        uint k = len - 1;
+        while (_i != 0) {
+            bstr[k--] = byte(uint8(48 + _i % 10));
+            _i /= 10;
+        }
+        return string(bstr);
+    }
+    
+    function strConcat(string memory _a, string memory _b) internal pure returns (string memory _concatenatedString) {
+        return strConcat(_a, _b, "", "", "");
+    }
+    
+    function strConcat(string memory _a, string memory _b, string memory _c, string memory _d, string memory _e) internal pure returns (string memory _concatenatedString) {
+        bytes memory _ba = bytes(_a);
+        bytes memory _bb = bytes(_b);
+        bytes memory _bc = bytes(_c);
+        bytes memory _bd = bytes(_d);
+        bytes memory _be = bytes(_e);
+        string memory abcde = new string(_ba.length + _bb.length + _bc.length + _bd.length + _be.length);
+        bytes memory babcde = bytes(abcde);
+        uint k = 0;
+        uint i = 0;
+        for (i = 0; i < _ba.length; i++) {
+            babcde[k++] = _ba[i];
+        }
+        for (i = 0; i < _bb.length; i++) {
+            babcde[k++] = _bb[i];
+        }
+        for (i = 0; i < _bc.length; i++) {
+            babcde[k++] = _bc[i];
+        }
+        for (i = 0; i < _bd.length; i++) {
+            babcde[k++] = _bd[i];
+        }
+        for (i = 0; i < _be.length; i++) {
+            babcde[k++] = _be[i];
+        }
+        return string(babcde);
+    }
+}
 /**
  * @title SafeMath
  * @dev Unsigned math operations with safety checks that revert on error
@@ -774,3 +826,236 @@ contract IERC721Metadata is IERC721 {
 }
 
 contract ProductInventory is MinterRole {
+    using SafeMath for uint256;
+
+    event ProductCreated(
+        uint256 id,
+        uint256 price,
+        uint256 activationPrice,
+        uint256 available,
+        uint256 supply,
+        uint256 interval
+    );
+    event ProductAvailabilityChanged(uint256 productId, uint256 available);
+    event ProductPriceChanged(uint256 productId, uint256 price);
+
+    // All product ids in existence
+    uint256[] public allProductIds;
+
+    // Map from product id to Product
+    mapping (uint256 => Product) public products;
+
+    struct Product {
+        uint256 id;
+        uint256 price;
+        uint256 activationPrice;
+        uint256 available;
+        uint256 supply;
+        uint256 sold;
+        uint256 interval;
+    }
+
+    function _productExists(uint256 _productId) internal view returns (bool) {
+        return products[_productId].id != 0;
+    }
+
+    function _createProduct(
+        uint256 _productId,
+        uint256 _price,
+        uint256 _activationPrice,
+        uint256 _initialAvailable,
+        uint256 _supply,
+        uint256 _interval
+    )
+    internal
+    {
+        require(!_productExists(_productId));
+        require(_initialAvailable <= _supply);
+
+        Product memory _product = Product({
+          id: _productId,
+          price: _price,
+          activationPrice: _activationPrice,
+          available: _initialAvailable,
+          supply: _supply,
+          sold: 0,
+          interval: _interval
+        });
+
+        products[_productId] = _product;
+        allProductIds.push(_productId);
+
+        emit ProductCreated(
+          _product.id,
+          _product.price,
+          _product.activationPrice,
+          _product.available,
+          _product.supply,
+          _product.interval
+        );
+    }
+
+    function _incrementAvailability(
+        uint256 _productId,
+        uint256 _increment)
+        internal
+    {
+        require(_productExists(_productId));
+        uint256 newAvailabilityLevel = products[_productId].available.add(_increment);
+        //if supply isn't 0 (unlimited), we check if incrementing puts above supply
+        if(products[_productId].supply != 0) {
+          require(products[_productId].sold.add(newAvailabilityLevel) <= products[_productId].supply);
+        }
+        products[_productId].available = newAvailabilityLevel;
+    }
+
+    function _setAvailability(uint256 _productId, uint256 _availability) internal
+    {
+        require(_productExists(_productId));
+        require(_availability >= 0);
+        products[_productId].available = _availability;
+    }
+
+    function _setPrice(uint256 _productId, uint256 _price) internal
+    {
+        require(_productExists(_productId));
+        products[_productId].price = _price;
+    }
+
+    function _purchaseProduct(uint256 _productId) internal {
+        require(_productExists(_productId));
+        require(products[_productId].available > 0);
+        require(products[_productId].available.sub(1) >= 0);
+        products[_productId].available = products[_productId].available.sub(1);
+        products[_productId].sold = products[_productId].sold.add(1);
+    }
+
+    /*** public onlyMinter ***/
+
+    /**
+    * @notice Creates a Product
+    * @param _productId - product id to use (immutable)
+    * @param _price - price of product
+    * @param _activationPrice - price of activation
+    * @param _initialAvailable - the initial amount available for sale
+    * @param _supply - total supply - `0` means unlimited (immutable)
+    * @param _interval - interval - period of time, in seconds, users can subscribe 
+    * for. If set to 0, it's not a subscription product (immutable)
+    */
+    function createProduct(
+        uint256 _productId,
+        uint256 _price,
+        uint256 _activationPrice,
+        uint256 _initialAvailable,
+        uint256 _supply,
+        uint256 _interval
+    )
+    external
+    onlyMinter
+    {
+    _createProduct(
+        _productId,
+        _price,
+        _activationPrice,
+        _initialAvailable,
+        _supply,
+        _interval);
+    }
+
+    /**
+    * @notice incrementAvailability - increments the 
+    * @param _productId - product id
+    * @param _increment - amount to increment
+    */
+    function incrementAvailability(
+        uint256 _productId,
+        uint256 _increment)
+    external
+    onlyMinter
+    {
+        _incrementAvailability(_productId, _increment);
+        emit ProductAvailabilityChanged(_productId, products[_productId].available);
+    }
+
+    /**
+    * @notice Increments the inventory of a product
+    * @param _productId - the product id
+    * @param _amount - the amount to set
+    */
+    function setAvailability(
+        uint256 _productId,
+        uint256 _amount)
+    external
+    onlyMinter
+    {
+        _setAvailability(_productId, _amount);
+        emit ProductAvailabilityChanged(_productId, products[_productId].available);
+    }
+
+    /**
+    * @notice Sets the price of a product
+    * @param _productId - the product id
+    * @param _price - the product price
+    */
+    function setPrice(uint256 _productId, uint256 _price)
+    external
+    onlyMinter
+    {
+        _setPrice(_productId, _price);
+        emit ProductPriceChanged(_productId, _price);
+    }
+
+    /*** public onlyMinter ***/
+
+    /**
+    * @notice Total amount sold of a product
+    * @param _productId - the product id
+    */
+    function totalSold(uint256 _productId) public view returns (uint256) {
+        return products[_productId].sold;
+    }
+
+    /**
+    * @notice Price of a product
+    * @param _productId - the product id
+    */
+    function priceOf(uint256 _productId) public view returns (uint256) {
+        return products[_productId].price;
+    }
+
+    /**
+    * @notice Price of activation of a product
+    * @param _productId - the product id
+    */
+    function priceOfActivation(uint256 _productId) public view returns (uint256) {
+        return products[_productId].activationPrice;
+    }
+
+    /**
+    * @notice Product info for a product
+    * @param _productId - the product id
+    */
+    function productInfo(uint256 _productId)
+    public
+    view
+    returns (uint256, uint256, uint256, uint256, uint256)
+    {
+    return (
+      products[_productId].price,
+      products[_productId].activationPrice,
+      products[_productId].available,
+      products[_productId].supply,
+      products[_productId].interval
+      );
+    }
+
+  /**
+  * @notice Get product ids
+  */
+  function getAllProductIds() public view returns (uint256[] memory) {
+    return allProductIds;
+  }
+}
+
+contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721Metadata, ProductInventory {
+}
