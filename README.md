@@ -6,7 +6,7 @@ ERC721 Product key is a proof-of-concept non-fungible token that can represent s
 
 ### Use cases:
 - Paid or non-paid generic non-fungible token use cases
-- Access keys that provide access to app features
+- Access keys that provide access to the app or features
 - Subscription keys that provide access for a limited time that starts when activated
 - Providing keys for multiple types of products on one smart contract
 
