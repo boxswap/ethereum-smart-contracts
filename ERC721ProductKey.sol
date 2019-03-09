@@ -1,5 +1,3 @@
-
-
 pragma solidity ^0.5.4;
 
 /**
@@ -60,9 +58,9 @@ contract IERC721Receiver {
      * @param data Additional data with no specified format
      * @return `bytes4(keccak256("onERC721Received(address,address,uint256,bytes)"))`
      */
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes memory data)
-    public returns (bytes4);
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes memory data) public returns (bytes4);
 }
+
 library Strings {
     function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
         if (_i == 0) {
@@ -873,25 +871,25 @@ contract ProductInventory is MinterRole {
         require(_initialAvailable <= _supply);
 
         Product memory _product = Product({
-          id: _productId,
-          price: _price,
-          activationPrice: _activationPrice,
-          available: _initialAvailable,
-          supply: _supply,
-          sold: 0,
-          interval: _interval
+            id: _productId,
+            price: _price,
+            activationPrice: _activationPrice,
+            available: _initialAvailable,
+            supply: _supply,
+            sold: 0,
+            interval: _interval
         });
 
         products[_productId] = _product;
         allProductIds.push(_productId);
 
         emit ProductCreated(
-          _product.id,
-          _product.price,
-          _product.activationPrice,
-          _product.available,
-          _product.supply,
-          _product.interval
+            _product.id,
+            _product.price,
+            _product.activationPrice,
+            _product.available,
+            _product.supply,
+            _product.interval
         );
     }
 
@@ -904,7 +902,7 @@ contract ProductInventory is MinterRole {
         uint256 newAvailabilityLevel = products[_productId].available.add(_increment);
         //if supply isn't 0 (unlimited), we check if incrementing puts above supply
         if(products[_productId].supply != 0) {
-          require(products[_productId].sold.add(newAvailabilityLevel) <= products[_productId].supply);
+            require(products[_productId].sold.add(newAvailabilityLevel) <= products[_productId].supply);
         }
         products[_productId].available = newAvailabilityLevel;
     }
@@ -953,13 +951,13 @@ contract ProductInventory is MinterRole {
     external
     onlyMinter
     {
-    _createProduct(
-        _productId,
-        _price,
-        _activationPrice,
-        _initialAvailable,
-        _supply,
-        _interval);
+        _createProduct(
+            _productId,
+            _price,
+            _activationPrice,
+            _initialAvailable,
+            _supply,
+            _interval);
     }
 
     /**
@@ -1040,22 +1038,254 @@ contract ProductInventory is MinterRole {
     view
     returns (uint256, uint256, uint256, uint256, uint256)
     {
-    return (
-      products[_productId].price,
-      products[_productId].activationPrice,
-      products[_productId].available,
-      products[_productId].supply,
-      products[_productId].interval
-      );
+        return (
+            products[_productId].price,
+            products[_productId].activationPrice,
+            products[_productId].available,
+            products[_productId].supply,
+            products[_productId].interval
+        );
     }
 
   /**
   * @notice Get product ids
   */
-  function getAllProductIds() public view returns (uint256[] memory) {
-    return allProductIds;
-  }
+    function getAllProductIds() public view returns (uint256[] memory) {
+        return allProductIds;
+    }
 }
 
 contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721Metadata, ProductInventory {
+    using SafeMath for uint256;
+
+    // Token name
+    string private _name;
+    // Token symbol
+    string private _symbol;
+    // Base metadata URI symbol
+    string private _baseMetadataURI;
+
+    struct ProductKey {
+        uint256 productId;
+        uint256 attributes;
+        uint256 issuedTime;
+        uint256 expirationTime;
+    }
+
+    event KeyIssued(
+        address indexed owner,
+        address indexed purchaser,
+        uint256 keyId,
+        uint256 productId,
+        uint256 attributes,
+        uint256 issuedTime,
+        uint256 expirationTime
+    );
+
+    event KeyActivated(
+        address indexed owner,
+        address indexed activator,
+        uint256 keyId,
+        uint256 productId,
+        uint256 attributes,
+        uint256 issuedTime,
+        uint256 expirationTime
+    );
+
+    ProductKey[] productKeys;
+
+    bytes4 private constant _INTERFACE_ID_ERC721_METADATA = 0x5b5e139f;
+    /*
+     * 0x5b5e139f ===
+     *     bytes4(keccak256('name()')) ^
+     *     bytes4(keccak256('symbol()')) ^
+     *     bytes4(keccak256('tokenURI(uint256)'))
+     */
+
+    /**
+     * @dev Constructor function
+     */
+    constructor (string memory name, string memory symbol, string memory baseURI) public {
+        _name = name;
+        _symbol = symbol;
+        _baseMetadataURI = baseURI;
+        // register the supported interfaces to conform to ERC721 via ERC165
+        _registerInterface(_INTERFACE_ID_ERC721_METADATA);
+    }
+
+    /**
+     * @dev Gets the token name
+     * @return string representing the token name
+     */
+    function name() external view returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @notice Gets the token symbol
+     * @return string representing the token symbol
+     */
+    function symbol() external view returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @notice Sets a Base URI to be used for token URI
+     * @param baseURI string of the base uri to set
+     */
+    function setTokenMetadataBaseURI(string calldata baseURI) external onlyMinter {
+        _baseMetadataURI = baseURI;
+    }
+
+    /**
+     * @notice Returns a URI for a given ID
+     * Throws if the token ID does not exist. May return an empty string.
+     * @param tokenId uint256 ID of the token to query
+     */
+    function tokenURI(uint256 tokenId) external view returns (string memory) {
+        require(_exists(tokenId));
+        return Strings.strConcat(
+            _baseMetadataURI,
+            Strings.uint2str(tokenId));
+    }
+    
+    /**
+     * @notice activates access key
+     * Throws if not approved or owner or key already active
+     * @param _keyId uint256 ID of the key to activate
+     */
+    function _activate(uint256 _keyId) internal {
+        require(_isApprovedOrOwner(msg.sender, _keyId));
+        require(isKeyActive(_keyId));
+        uint256 productId = productKeys[_keyId].productId;
+        //set expiration time which activates the productkey
+        productKeys[_keyId].expirationTime = now.add(products[productId].interval);
+        //emit key activated event
+        emit KeyActivated(
+            ownerOf(_keyId),
+            msg.sender,
+            _keyId,
+            productId,
+            productKeys[_keyId].attributes,
+            productKeys[_keyId].issuedTime,
+            productKeys[_keyId].expirationTime
+        );
+    }
+
+    function _createKey(
+        uint256 _productId,
+        address _beneficiary
+    )
+    internal
+    returns (uint)
+    {
+        ProductKey memory _productKey = ProductKey({
+            productId: _productId,
+            attributes: 0,
+            issuedTime: now, 
+            expirationTime: 0
+        });
+
+        uint256 newKeyId = totalSupply();
+        emit KeyIssued(
+            _beneficiary,
+            msg.sender,
+            newKeyId,
+            _productKey.productId,
+            _productKey.attributes,
+            _productKey.issuedTime,
+            _productKey.expirationTime);
+        _mint(_beneficiary, newKeyId);
+        return newKeyId;
+    }
+
+    function _purchase(
+        uint256 _productId,
+        address _beneficiary)
+    internal returns (uint)
+    {
+        _purchaseProduct(_productId);
+        return _createKey(
+            _productId,
+            _beneficiary
+        );
+    }
+
+    /** only minter **/
+    function promotionalPurchase(
+        uint256 _productId,
+        address _beneficiary
+    )
+    external
+    onlyMinter
+    returns (uint256)
+    {
+        return _purchase(
+            _productId,
+            _beneficiary
+        );
+    }
+
+    /** anyone **/
+
+    /**
+    * @notice Get if productkey is active
+    * @param _keyId the id of key
+    */
+    function isKeyActive(uint256 _keyId) public view returns (bool) {
+        return productKeys[_keyId].expirationTime > 0 || products[productKeys[_keyId].productId].interval == 0;
+    }
+
+    /**
+    * @notice Get a ProductKey's info
+    * @param _keyId key id
+    */
+    function getKeyInfo(uint256 _keyId)
+    public view returns (uint256, uint256, uint256, uint256)
+    {
+        return (productKeys[_keyId].productId,
+            productKeys[_keyId].attributes,
+            productKeys[_keyId].issuedTime,
+            productKeys[_keyId].expirationTime
+        );
+    }
+
+    /**
+    * @notice purchase a product
+    * @param _productId - product id to purchase
+    * @param _beneficiary - the token receiving address
+    */
+    function purchase(
+        uint256 _productId,
+        address _beneficiary
+    )
+    external
+    payable
+    returns (uint256)
+    {
+        require(_productId != 0);
+        require(_beneficiary != address(0));
+        // No excess
+        require(msg.value == priceOf(_productId));
+        return _purchase(
+            _productId,
+            _beneficiary
+        );
+    }
+
+    /**
+    * @notice activates token
+    */
+    function activate(
+        uint256 _tokenId
+    )
+    external
+    payable
+    {
+        require(ownerOf(_tokenId) != address(0));
+        // no excess
+        require(msg.value == priceOfActivation(_tokenId));
+        _activate(_tokenId);
+
+    }
 }
