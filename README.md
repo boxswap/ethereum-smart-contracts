@@ -4,9 +4,10 @@
 ### What is it? 
 ERC721 Product key is a proof-of-concept non-fungible token that can represent subscription or non-subscription access keys (i.e. license keys) on Ethereum. The contract minter creates paid or free products that can be "sold" to users. Using keyInfo, the minter can distinguish from types of products and keys. Subscriptions can be required to activate before being used providing opportunity to reserve the subscription for future use. 
 
-### Use cases:
+### Features:
 - Paid or non-paid generic non-fungible token use cases
 - Access keys that provide access to the app or features
+- Access keys that cannot be purchased and only minted by minter role
 - Subscription keys that provide access for a limited time that starts when activated
 - Providing keys for multiple types of products on one smart contract
 
