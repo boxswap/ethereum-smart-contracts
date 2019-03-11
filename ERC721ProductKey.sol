@@ -1,4 +1,4 @@
-pragma solidity ^0.5.4;
+pragma solidity ^0.5.5;
 
 /**
  * @title IERC165
@@ -832,7 +832,8 @@ contract ProductInventory is MinterRole {
         uint256 activationPrice,
         uint256 available,
         uint256 supply,
-        uint256 interval
+        uint256 interval,
+        bool minterOnly
     );
     event ProductAvailabilityChanged(uint256 productId, uint256 available);
     event ProductPriceChanged(uint256 productId, uint256 price);
@@ -851,6 +852,7 @@ contract ProductInventory is MinterRole {
         uint256 supply;
         uint256 sold;
         uint256 interval;
+        bool minterOnly;
     }
 
     function _productExists(uint256 _productId) internal view returns (bool) {
@@ -863,7 +865,8 @@ contract ProductInventory is MinterRole {
         uint256 _activationPrice,
         uint256 _initialAvailable,
         uint256 _supply,
-        uint256 _interval
+        uint256 _interval,
+        bool _minterOnly
     )
     internal
     {
@@ -877,7 +880,8 @@ contract ProductInventory is MinterRole {
             available: _initialAvailable,
             supply: _supply,
             sold: 0,
-            interval: _interval
+            interval: _interval,
+            minterOnly: _minterOnly
         });
 
         products[_productId] = _product;
@@ -889,7 +893,8 @@ contract ProductInventory is MinterRole {
             _product.activationPrice,
             _product.available,
             _product.supply,
-            _product.interval
+            _product.interval,
+            _product.minterOnly
         );
     }
 
@@ -939,6 +944,7 @@ contract ProductInventory is MinterRole {
     * @param _supply - total supply - `0` means unlimited (immutable)
     * @param _interval - interval - period of time, in seconds, users can subscribe 
     * for. If set to 0, it's not a subscription product (immutable)
+    * @param _minterOnly - if true, purchase is only available to minter
     */
     function createProduct(
         uint256 _productId,
@@ -946,7 +952,8 @@ contract ProductInventory is MinterRole {
         uint256 _activationPrice,
         uint256 _initialAvailable,
         uint256 _supply,
-        uint256 _interval
+        uint256 _interval,
+        bool _minterOnly
     )
     external
     onlyMinter
@@ -957,7 +964,8 @@ contract ProductInventory is MinterRole {
             _activationPrice,
             _initialAvailable,
             _supply,
-            _interval);
+            _interval,
+            _minterOnly);
     }
 
     /**
@@ -1017,6 +1025,14 @@ contract ProductInventory is MinterRole {
     * @notice Price of a product
     * @param _productId - the product id
     */
+    function isMinterOnly(uint256 _productId) public view returns (bool) {
+        return products[_productId].minterOnly;
+    }
+
+    /**
+    * @notice Price of a product
+    * @param _productId - the product id
+    */
     function priceOf(uint256 _productId) public view returns (uint256) {
         return products[_productId].price;
     }
@@ -1036,14 +1052,15 @@ contract ProductInventory is MinterRole {
     function productInfo(uint256 _productId)
     public
     view
-    returns (uint256, uint256, uint256, uint256, uint256)
+    returns (uint256, uint256, uint256, uint256, uint256, bool)
     {
         return (
             products[_productId].price,
             products[_productId].activationPrice,
             products[_productId].available,
             products[_productId].supply,
-            products[_productId].interval
+            products[_productId].interval,
+            products[_productId].minterOnly
         );
     }
 
@@ -1055,7 +1072,53 @@ contract ProductInventory is MinterRole {
     }
 }
 
-contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721Metadata, ProductInventory {
+contract IERC721ProductKey is IERC721 {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function tokenURI(uint256 tokenId) external view returns (string memory);
+    function supportsInterface(bytes4 interfaceId) external view returns (bool);
+    function balanceOf(address owner) public view returns (uint256 balance);
+    function ownerOf(uint256 tokenId) public view returns (address owner);
+    function approve(address to, uint256 tokenId) public;
+    function getApproved(uint256 tokenId) public view returns (address operator);
+    function setApprovalForAll(address operator, bool _approved) public;
+    function isApprovedForAll(address owner, address operator) public view returns (bool);
+    function transferFrom(address from, address to, uint256 tokenId) public;
+    function safeTransferFrom(address from, address to, uint256 tokenId) public;
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public;
+    function activate(uint256 _tokenId) external;
+    function purchase(uint256 _productId, address _beneficiary) external returns (uint256);
+    function setKeyAttributes(uint256 _keyId, address _attributes) public;
+    function keyInfo(uint256 _keyId) public;
+    function isKeyActive(uint256 _keyId) public view returns (bool);
+    function productInfo(uint256 _productId) public view returns (uint256, uint256, uint256, uint256, uint256);
+    function getAllProductIds() public view returns (uint256[] memory);
+    function priceOf(uint256 _productId) public view returns (uint256);
+
+    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+    event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
+    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
+    event KeyIssued(
+        address indexed owner,
+        address indexed purchaser,
+        uint256 keyId,
+        uint256 productId,
+        uint256 attributes,
+        uint256 issuedTime,
+        uint256 expirationTime
+    );
+    event KeyActivated(
+        address indexed owner,
+        address indexed activator,
+        uint256 keyId,
+        uint256 productId,
+        uint256 attributes,
+        uint256 issuedTime,
+        uint256 expirationTime
+    );
+}
+
+contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721Metadata, ProductInventory, IERC721ProductKey {
     using SafeMath for uint256;
 
     // Token name
@@ -1064,13 +1127,6 @@ contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721M
     string private _symbol;
     // Base metadata URI symbol
     string private _baseMetadataURI;
-
-    struct ProductKey {
-        uint256 productId;
-        uint256 attributes;
-        uint256 issuedTime;
-        uint256 expirationTime;
-    }
 
     event KeyIssued(
         address indexed owner,
@@ -1091,6 +1147,13 @@ contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721M
         uint256 issuedTime,
         uint256 expirationTime
     );
+
+    struct ProductKey {
+        uint256 productId;
+        uint256 attributes;
+        uint256 issuedTime;
+        uint256 expirationTime;
+    }
 
     ProductKey[] productKeys;
 
@@ -1199,6 +1262,11 @@ contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721M
         return newKeyId;
     }
 
+    function _setKeyAttributes(uint256 _keyId, uint256 _attributes) internal
+    {
+        productKeys[_keyId].attributes = _attributes;
+    }
+
     function _purchase(
         uint256 _productId,
         address _beneficiary)
@@ -1212,7 +1280,7 @@ contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721M
     }
 
     /** only minter **/
-    function promotionalPurchase(
+    function minterOnlyPurchase(
         uint256 _productId,
         address _beneficiary
     )
@@ -1223,6 +1291,20 @@ contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721M
         return _purchase(
             _productId,
             _beneficiary
+        );
+    }
+
+    function setKeyAttributes(
+        uint256 _keyId,
+        address _attributes
+    )
+    external
+    onlyMinter
+    returns (uint256)
+    {
+        return _setKeyAttributes(
+            _keyId,
+            _attributes
         );
     }
 
@@ -1240,7 +1322,7 @@ contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721M
     * @notice Get a ProductKey's info
     * @param _keyId key id
     */
-    function getKeyInfo(uint256 _keyId)
+    function keyInfo(uint256 _keyId)
     public view returns (uint256, uint256, uint256, uint256)
     {
         return (productKeys[_keyId].productId,
@@ -1267,6 +1349,7 @@ contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721M
         require(_beneficiary != address(0));
         // No excess
         require(msg.value == priceOf(_productId));
+        require(!isMinterOnly(_productId));
         return _purchase(
             _productId,
             _beneficiary
