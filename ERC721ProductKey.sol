@@ -870,6 +870,7 @@ contract ProductInventory is MinterRole {
     )
     internal
     {
+        require(_productId != 0);
         require(!_productExists(_productId));
         require(_initialAvailable <= _supply);
 
@@ -1237,6 +1238,8 @@ contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721M
         });
 
         uint256 newKeyId = totalSupply();
+
+        productKeys[newKeyId] = _productKey;
         emit KeyIssued(
             _beneficiary,
             msg.sender,
