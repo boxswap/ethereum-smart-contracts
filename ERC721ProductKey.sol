@@ -1142,8 +1142,9 @@ contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721M
         uint256 issuedTime;
         uint256 expirationTime;
     }
-
-    ProductKey[] productKeys;
+    
+    // Map from keyid to ProductKey
+    mapping (uint256 => ProductKey) public productKeys;
 
     bytes4 private constant _INTERFACE_ID_ERC721_METADATA = 0x5b5e139f;
     /*
@@ -1238,7 +1239,7 @@ contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721M
         });
 
         uint256 newKeyId = totalSupply();
-
+            
         productKeys[newKeyId] = _productKey;
         emit KeyIssued(
             _beneficiary,
