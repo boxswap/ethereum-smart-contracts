@@ -1073,7 +1073,7 @@ contract ProductInventory is MinterRole {
     }
 }
 
-contract IERC721ProductKey is IERC721 {
+contract IERC721ProductKey is IERC721Enumerable, IERC721Metadata {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
     function tokenURI(uint256 tokenId) external view returns (string memory);
@@ -1106,7 +1106,7 @@ contract IERC721ProductKey is IERC721 {
     );
 }
 
-contract ERC721ProductKey is ERC721, ERC721Enumerable, ReentrancyGuard, IERC721Metadata, ProductInventory {
+contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721Metadata, ProductInventory {
     using SafeMath for uint256;
 
     // Token name
