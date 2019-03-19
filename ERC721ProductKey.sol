@@ -1208,7 +1208,7 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721Metadata,
      */
     function _activate(uint256 _keyId) internal {
         require(_isApprovedOrOwner(msg.sender, _keyId));
-        require(isKeyActive(_keyId));
+        require(!isKeyActive(_keyId));
         uint256 productId = productKeys[_keyId].productId;
         //set expiration time which activates the productkey
         productKeys[_keyId].expirationTime = now.add(products[productId].interval);
