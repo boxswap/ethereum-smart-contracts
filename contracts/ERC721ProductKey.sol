@@ -4,9 +4,13 @@ import "./interfaces/IERC721Metadata.sol";
 import "./ReentrancyGuard.sol";
 import "./ERC721Enumerable.sol";
 import "./ProductInventory.sol";
+import "./libraries/SafeMath.sol";
+import "./libraries/Strings.sol";
+import "./libraries/Address.sol";
 
 contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721Metadata, ProductInventory {
     using SafeMath for uint256;
+    using Address for address;
 
     // Token name
     string private _name;
