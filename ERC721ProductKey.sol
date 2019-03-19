@@ -1305,7 +1305,7 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721Metadata,
     * @param _keyId the id of key
     */
     function isKeyActive(uint256 _keyId) public view returns (bool) {
-        return productKeys[_keyId].expirationTime > 0 || products[productKeys[_keyId].productId].interval == 0;
+        return productKeys[_keyId].expirationTime > now || products[productKeys[_keyId].productId].interval == 0;
     }
 
     /**
