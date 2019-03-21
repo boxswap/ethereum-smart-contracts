@@ -9,6 +9,7 @@ contract MinterRole {
     event MinterRemoved(address indexed account);
 
     Roles.Role private _minters;
+    address public withdrawalWallet;
 
     constructor () internal {
         _addMinter(msg.sender);
@@ -40,4 +41,14 @@ contract MinterRole {
         _minters.remove(account);
         emit MinterRemoved(account);
     }
+
+    function setWithdrawalWallet(address _withdrawalWallet) external onlyMinter {
+        withdrawalWallet = _withdrawalWallet;
+    }
+
+    function withdrawBalance() external onlyMinter {
+        require(withdrawalWallet != address(0));
+        withdrawalWallet.transfer(this.balance);
+    }
+
 }
