@@ -1075,18 +1075,11 @@ contract ProductInventory is MinterRole {
 }
 
 contract IERC721ProductKey is IERC721Enumerable, IERC721Metadata {
-    function name() external view returns (string memory);
-    function symbol() external view returns (string memory);
-    function tokenURI(uint256 tokenId) external view returns (string memory);
-    function activate(uint256 _tokenId) external;
-    function purchase(uint256 _productId, address _beneficiary) external returns (uint256);
+    function activate(uint256 _tokenId) external payable;
+    function purchase(uint256 _productId, address _beneficiary) external payable returns (uint256);
     function setKeyAttributes(uint256 _keyId, address _attributes) public;
-    function keyInfo(uint256 _keyId) public;
+    function keyInfo(uint256 _keyId) public view returns (uint256, uint256, uint256, uint256);
     function isKeyActive(uint256 _keyId) public view returns (bool);
-
-    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
-    event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
-    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
     event KeyIssued(
         address indexed owner,
         address indexed purchaser,
@@ -1107,7 +1100,7 @@ contract IERC721ProductKey is IERC721Enumerable, IERC721Metadata {
     );
 }
 
-contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721Metadata, ProductInventory {
+contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKey, ProductInventory {
     using SafeMath for uint256;
     using Address for address;
 

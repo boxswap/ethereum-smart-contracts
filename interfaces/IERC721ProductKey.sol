@@ -4,15 +4,11 @@ import "./interfaces/IERC721Enumerable.sol";
 import "./interfaces/IERC721Metadata.sol";
 
 contract IERC721ProductKey is IERC721Enumerable, IERC721Metadata {
-    function activate(uint256 _tokenId) external;
-    function purchase(uint256 _productId, address _beneficiary) external returns (uint256);
+    function activate(uint256 _tokenId) external payable;
+    function purchase(uint256 _productId, address _beneficiary) external payable returns (uint256);
     function setKeyAttributes(uint256 _keyId, address _attributes) public;
-    function keyInfo(uint256 _keyId) public;
+    function keyInfo(uint256 _keyId) public view returns (uint256, uint256, uint256, uint256);
     function isKeyActive(uint256 _keyId) public view returns (bool);
-
-    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
-    event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
-    event ApprovalForAll(address indexed owner, address indexed operator, bool approved);
     event KeyIssued(
         address indexed owner,
         address indexed purchaser,

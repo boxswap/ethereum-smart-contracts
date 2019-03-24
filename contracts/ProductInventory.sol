@@ -1,7 +1,6 @@
 pragma solidity ^0.5.5;
 
 import "./MinterRole.sol";
-
 contract ProductInventory is MinterRole {
     using SafeMath for uint256;
 
