@@ -7,8 +7,7 @@ import "./ProductInventory.sol";
 import "./libraries/SafeMath.sol";
 import "./libraries/Strings.sol";
 import "./libraries/Address.sol";
-
-contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721Metadata, ProductInventory {
+contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKey, ProductInventory {
     using SafeMath for uint256;
     using Address for address;
 
@@ -18,6 +17,8 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721Metadata,
     string private _symbol;
     // Base metadata URI symbol
     string private _baseMetadataURI;
+    // Withdrawal wallet
+    address payable private _withdrawalWallet;
 
     event KeyIssued(
         address indexed owner,
@@ -60,10 +61,11 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721Metadata,
     /**
      * @dev Constructor function
      */
-    constructor (string memory name, string memory symbol, string memory baseURI) public {
+    constructor (string memory name, string memory symbol, string memory baseURI, address payable withdrawalWallet) public {
         _name = name;
         _symbol = symbol;
         _baseMetadataURI = baseURI;
+        _withdrawalWallet = withdrawalWallet;
         // register the supported interfaces to conform to ERC721 via ERC165
         _registerInterface(_INTERFACE_ID_ERC721_METADATA);
     }
@@ -82,6 +84,13 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721Metadata,
      */
     function symbol() external view returns (string memory) {
         return _symbol;
+    }
+
+    /**
+     * @return the address where funds are collected.
+     */
+    function withdrawalWallet() public view returns (address payable) {
+        return _withdrawalWallet;
     }
 
     /**
@@ -174,6 +183,11 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721Metadata,
     }
 
     /** only minter **/
+
+    function withdrawBalance() external onlyMinter {
+        _withdrawalWallet.transfer(address(this).balance);
+    }
+
     function minterOnlyPurchase(
         uint256 _productId,
         address _beneficiary
