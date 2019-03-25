@@ -7,7 +7,8 @@ import "./ProductInventory.sol";
 import "./libraries/SafeMath.sol";
 import "./libraries/Strings.sol";
 import "./libraries/Address.sol";
-contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKey, ProductInventory {
+
+contract ERC721ProductKey is IERC721ProductKey, ERC721Enumerable, ReentrancyGuard, ProductInventory {
     using SafeMath for uint256;
     using Address for address;
 
@@ -206,7 +207,7 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKe
         uint256 _keyId,
         uint256 _attributes
     )
-    external
+    public
     onlyMinter
     {
         return _setKeyAttributes(
@@ -230,7 +231,7 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKe
     * @param _keyId key id
     */
     function keyInfo(uint256 _keyId)
-    public view returns (uint256, uint256, uint256, uint256)
+    external view returns (uint256, uint256, uint256, uint256)
     {
         return (productKeys[_keyId].productId,
             productKeys[_keyId].attributes,
@@ -248,7 +249,7 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKe
         uint256 _productId,
         address _beneficiary
     )
-    external
+    public
     payable
     returns (uint256)
     {
@@ -269,7 +270,7 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKe
     function activate(
         uint256 _tokenId
     )
-    external
+    public
     payable
     {
         require(ownerOf(_tokenId) != address(0));

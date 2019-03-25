@@ -826,7 +826,8 @@ contract IERC721Metadata is IERC721 {
 
 contract ProductInventory is MinterRole {
     using SafeMath for uint256;
-
+    using Address for address;
+    
     event ProductCreated(
         uint256 id,
         uint256 price,
@@ -1075,10 +1076,10 @@ contract ProductInventory is MinterRole {
 }
 
 contract IERC721ProductKey is IERC721Enumerable, IERC721Metadata {
-    function activate(uint256 _tokenId) external payable;
-    function purchase(uint256 _productId, address _beneficiary) external payable returns (uint256);
-    function setKeyAttributes(uint256 _keyId, address _attributes) public;
-    function keyInfo(uint256 _keyId) public view returns (uint256, uint256, uint256, uint256);
+    function activate(uint256 _tokenId) public payable;
+    function purchase(uint256 _productId, address _beneficiary) public payable returns (uint256);
+    function setKeyAttributes(uint256 _keyId, uint256 _attributes) public;
+    function keyInfo(uint256 _keyId) external view returns (uint256, uint256, uint256, uint256);
     function isKeyActive(uint256 _keyId) public view returns (bool);
     event KeyIssued(
         address indexed owner,
@@ -1100,7 +1101,7 @@ contract IERC721ProductKey is IERC721Enumerable, IERC721Metadata {
     );
 }
 
-contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKey, ProductInventory {
+contract ERC721ProductKey is IERC721ProductKey, ERC721Enumerable, ReentrancyGuard, ProductInventory {
     using SafeMath for uint256;
     using Address for address;
 
@@ -1299,7 +1300,7 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKe
         uint256 _keyId,
         uint256 _attributes
     )
-    external
+    public
     onlyMinter
     {
         return _setKeyAttributes(
@@ -1323,7 +1324,7 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKe
     * @param _keyId key id
     */
     function keyInfo(uint256 _keyId)
-    public view returns (uint256, uint256, uint256, uint256)
+    external view returns (uint256, uint256, uint256, uint256)
     {
         return (productKeys[_keyId].productId,
             productKeys[_keyId].attributes,
@@ -1341,7 +1342,7 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKe
         uint256 _productId,
         address _beneficiary
     )
-    external
+    public
     payable
     returns (uint256)
     {
@@ -1362,7 +1363,7 @@ contract ERC721ProductKey is ERC721Enumerable, ReentrancyGuard, IERC721ProductKe
     function activate(
         uint256 _tokenId
     )
-    external
+    public
     payable
     {
         require(ownerOf(_tokenId) != address(0));
